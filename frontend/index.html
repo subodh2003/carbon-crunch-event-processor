@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Crunch Event Processor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <main class="container">
+        <header>
+            <h1>Event Processor</h1>
+            <p>Fault-tolerant event ingestion and aggregation</p>
+        </header>
+
+        <section class="card">
+            <h2>Submit Event</h2>
+
+            <label for="eventInput">Raw JSON</label>
+
+            <textarea id="eventInput" spellcheck="false">{
+  "source": "client_A",
+  "payload": {
+    "metric": "value",
+    "amount": "1200",
+    "timestamp": "2024/01/01"
+  }
+}</textarea>
+
+            <label class="checkbox">
+                <input type="checkbox" id="simulateFailure">
+                Simulate database failure
+            </label>
+
+            <button id="submitButton">Submit Event</button>
+
+            <div id="submitResult"></div>
+        </section>
+
+        <section class="stats">
+            <div class="stat">
+                <span id="processedCount">0</span>
+                <small>Processed</small>
+            </div>
+
+            <div class="stat">
+                <span id="failedCount">0</span>
+                <small>Failed</small>
+            </div>
+
+            <div class="stat">
+                <span id="duplicateCount">0</span>
+                <small>Duplicates</small>
+            </div>
+
+            <div class="stat">
+                <span id="rejectedCount">0</span>
+                <small>Rejected</small>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="section-header">
+                <h2>Processed Events</h2>
+
+                <input
+                    type="text"
+                    id="clientFilter"
+                    placeholder="Filter by client"
+                >
+            </div>
+
+            <div id="eventsList">
+                Loading...
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Aggregated Results</h2>
+            <div id="aggregatesList">
+                Loading...
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Processing Attempts</h2>
+            <div id="attemptsList">
+                Loading...
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
