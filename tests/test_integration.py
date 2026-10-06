@@ -64,4 +64,4 @@ def test_failed_processing_does_not_commit_partial_event():
             status, error_message = cur.fetchone()
 
     assert status == "failed"
-    assert error_message == "Simulated database failure"
+    assert error_message == "Simulated processing failure"
