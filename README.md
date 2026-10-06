@@ -1,4 +1,4 @@
-# Carbon Crunch Event Processor
+# Transactional Event Processor
 
 Transactional event-ingestion service built with **FastAPI + PostgreSQL**.
 
@@ -199,7 +199,7 @@ The test suite contains:
 Run locally against a PostgreSQL test database:
 
 ```bash
-export TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/carbon_crunch_test
+export TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/event_processor_test
 pytest -q
 ```
 
