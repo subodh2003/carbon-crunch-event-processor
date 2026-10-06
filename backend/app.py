@@ -1,9 +1,10 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aggregation import get_aggregates
 from database import get_connection
@@ -13,21 +14,72 @@ from processor import process_event
 app = FastAPI(title="Carbon Crunch Event Processor")
 
 
+class EventPayload(BaseModel):
+    source: str = Field(min_length=1, max_length=255)
+    payload: dict[str, Any]
+
+
 class EventRequest(BaseModel):
-    event: dict
+    event: EventPayload
     simulate_failure: bool = False
 
 
-@app.get("/health")
+class HealthResponse(BaseModel):
+    status: Literal["ok"]
+
+
+class ProcessEventResponse(BaseModel):
+    status: Literal["processed", "duplicate"]
+    message: str
+
+
+class EventItem(BaseModel):
+    id: int
+    client_id: str
+    metric: str
+    amount: str
+    timestamp: datetime
+    processed_at: datetime
+
+
+class AttemptItem(BaseModel):
+    id: int
+    source: str | None
+    status: str
+    error_message: str | None
+    created_at: datetime
+
+
+class AggregateItem(BaseModel):
+    client_id: str
+    count: int
+    total_amount: str
+
+
+class EventPage(BaseModel):
+    items: list[EventItem]
+    limit: int
+    offset: int
+    has_more: bool
+
+
+class AttemptPage(BaseModel):
+    items: list[AttemptItem]
+    limit: int
+    offset: int
+    has_more: bool
+
+
+@app.get("/health", response_model=HealthResponse)
 def health():
     return {"status": "ok"}
 
 
-@app.post("/events")
+@app.post("/events", response_model=ProcessEventResponse)
 def ingest_event(request: EventRequest):
     try:
         return process_event(
-            request.event,
+            request.event.model_dump(),
             request.simulate_failure,
         )
 
@@ -44,9 +96,9 @@ def ingest_event(request: EventRequest):
         )
 
 
-@app.get("/aggregates")
+@app.get("/aggregates", response_model=list[AggregateItem])
 def aggregates(
-    client_id: str | None = Query(default=None),
+    client_id: str | None = Query(default=None, min_length=1, max_length=255),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),
 ):
@@ -63,7 +115,7 @@ def aggregates(
     )
 
 
-@app.get("/attempts")
+@app.get("/attempts", response_model=AttemptPage)
 def get_attempts(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -106,9 +158,9 @@ def get_attempts(
     }
 
 
-@app.get("/events")
+@app.get("/events", response_model=EventPage)
 def get_events(
-    client_id: str | None = Query(default=None),
+    client_id: str | None = Query(default=None, min_length=1, max_length=255),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
@@ -151,7 +203,7 @@ def get_events(
                 "id": row[0],
                 "client_id": row[1],
                 "metric": row[2],
-                "amount": float(row[3]),
+                "amount": str(row[3]),
                 "timestamp": row[4],
                 "processed_at": row[5],
             }
