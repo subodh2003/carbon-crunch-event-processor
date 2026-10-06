@@ -4,19 +4,48 @@ from decimal import Decimal, InvalidOperation
 from dateutil import parser
 
 
+MAX_IDENTIFIER_LENGTH = 255
+
+
 def get_first(payload: dict, *names):
     for name in names:
-        if name in payload:
+        if name in payload and payload[name] is not None:
             return payload[name]
 
     return None
 
 
+def validate_identifier(value, field_name: str) -> str:
+    value = str(value).strip()
+
+    if not value:
+        raise ValueError(f"Missing {field_name}")
+
+    if len(value) > MAX_IDENTIFIER_LENGTH:
+        raise ValueError(f"{field_name} is too long")
+
+    return value
+
+
+def parse_amount(value) -> Decimal:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ValueError("Amount must be numeric")
+
+    if not amount.is_finite():
+        raise ValueError("Amount must be finite")
+
+    return amount
+
+
 def normalize_event(raw_event: dict) -> dict:
     source = raw_event.get("source")
 
-    if not source:
+    if source is None:
         raise ValueError("Missing source")
+
+    source = validate_identifier(source, "source")
 
     payload = raw_event.get("payload")
 
@@ -28,7 +57,6 @@ def normalize_event(raw_event: dict) -> dict:
     amount = get_first(payload, "amount", "value")
     timestamp = get_first(payload, "timestamp", "time")
 
-    # The source field is also accepted as the client identifier.
     if client_id is None:
         client_id = source
 
@@ -41,10 +69,9 @@ def normalize_event(raw_event: dict) -> dict:
     if timestamp is None:
         raise ValueError("Missing timestamp/time")
 
-    try:
-        amount = Decimal(str(amount))
-    except (InvalidOperation, ValueError):
-        raise ValueError("Amount must be numeric")
+    client_id = validate_identifier(client_id, "client_id")
+    metric = validate_identifier(metric, "metric")
+    amount = parse_amount(amount)
 
     try:
         timestamp = parser.parse(str(timestamp))
@@ -57,8 +84,8 @@ def normalize_event(raw_event: dict) -> dict:
     timestamp = timestamp.astimezone(timezone.utc)
 
     return {
-        "client_id": str(client_id),
-        "metric": str(metric),
+        "client_id": client_id,
+        "metric": metric,
         "amount": amount,
         "timestamp": timestamp,
     }
