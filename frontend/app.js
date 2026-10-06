@@ -25,7 +25,7 @@ async function submitEvent() {
     submitButton.disabled = true;
 
     try {
-        const response = await fetch(`${API_URL}/events`, {
+        const response = await fetch(API_URL + "/events", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -43,7 +43,7 @@ async function submitEvent() {
         }
 
         submitResult.textContent =
-            `${data.status}: ${data.message}`;
+            data.status + ": " + data.message;
 
         submitResult.className =
             data.status === "processed"
@@ -68,11 +68,12 @@ async function loadEvents() {
     const client = clientFilter.value.trim();
 
     const url = client
-        ? `${API_URL}/events?client_id=${encodeURIComponent(client)}`
-        : `${API_URL}/events`;
+        ? API_URL + "/events?client_id=" + encodeURIComponent(client)
+        : API_URL + "/events";
 
     const response = await fetch(url);
-    const events = await response.json();
+    const data = await response.json();
+    const events = data.items;
 
     const container = document.getElementById("eventsList");
 
@@ -81,19 +82,19 @@ async function loadEvents() {
         return;
     }
 
-    container.innerHTML = events.map(event => `
-        <div class="event">
-            <strong>${escapeHtml(event.client_id)}</strong>
-            <div>Metric: ${escapeHtml(event.metric)}</div>
-            <div>Amount: ${event.amount}</div>
-            <div>Timestamp: ${escapeHtml(event.timestamp)}</div>
-        </div>
-    `).join("");
+    container.innerHTML = events.map(event => (
+        '<div class="event">' +
+            '<strong>' + escapeHtml(event.client_id) + '</strong>' +
+            '<div>Metric: ' + escapeHtml(event.metric) + '</div>' +
+            '<div>Amount: ' + event.amount + '</div>' +
+            '<div>Timestamp: ' + escapeHtml(event.timestamp) + '</div>' +
+        '</div>'
+    )).join("");
 }
 
 
 async function loadAggregates() {
-    const response = await fetch(`${API_URL}/aggregates`);
+    const response = await fetch(API_URL + "/aggregates");
     const aggregates = await response.json();
 
     const container = document.getElementById("aggregatesList");
@@ -103,19 +104,20 @@ async function loadAggregates() {
         return;
     }
 
-    container.innerHTML = aggregates.map(item => `
-        <div class="aggregate">
-            <strong>${escapeHtml(item.client_id)}</strong>
-            <div>Events: ${item.count}</div>
-            <div>Total amount: ${item.total_amount}</div>
-        </div>
-    `).join("");
+    container.innerHTML = aggregates.map(item => (
+        '<div class="aggregate">' +
+            '<strong>' + escapeHtml(item.client_id) + '</strong>' +
+            '<div>Events: ' + item.count + '</div>' +
+            '<div>Total amount: ' + item.total_amount + '</div>' +
+        '</div>'
+    )).join("");
 }
 
 
 async function loadAttempts() {
-    const response = await fetch(`${API_URL}/attempts`);
-    const attempts = await response.json();
+    const response = await fetch(API_URL + "/attempts");
+    const data = await response.json();
+    const attempts = data.items;
 
     const container = document.getElementById("attemptsList");
 
@@ -124,22 +126,22 @@ async function loadAttempts() {
         return;
     }
 
-    container.innerHTML = attempts.map(attempt => `
-        <div class="attempt">
-            <span class="status">
-                ${escapeHtml(attempt.status.toUpperCase())}
-            </span>
-            <div>Source: ${escapeHtml(attempt.source || "unknown")}</div>
-            ${
-                attempt.error_message
-                    ? `<div class="error">
-                        ${escapeHtml(attempt.error_message)}
-                       </div>`
-                    : ""
-            }
-            <small>${escapeHtml(attempt.created_at)}</small>
-        </div>
-    `).join("");
+    container.innerHTML = attempts.map(attempt => (
+        '<div class="attempt">' +
+            '<span class="status">' +
+                escapeHtml(attempt.status.toUpperCase()) +
+            '</span>' +
+            '<div>Source: ' +
+                escapeHtml(attempt.source || "unknown") +
+            '</div>' +
+            (attempt.error_message
+                ? '<div class="error">' +
+                    escapeHtml(attempt.error_message) +
+                  '</div>'
+                : "") +
+            '<small>' + escapeHtml(attempt.created_at) + '</small>' +
+        '</div>'
+    )).join("");
 
     updateStats(attempts);
 }
