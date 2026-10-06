@@ -6,7 +6,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
-from database import close_pool
+from database import close_pool, open_pool
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +40,7 @@ def test_database():
     command.upgrade(config, "head")
 
     truncate_database(database_url)
+    open_pool()
 
     yield
 
@@ -53,6 +54,7 @@ def clean_database():
 
     close_pool()
     truncate_database(database_url)
+    open_pool()
 
     yield
 
