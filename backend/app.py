@@ -18,9 +18,6 @@ class EventRequest(BaseModel):
     simulate_failure: bool = False
 
 
-app = FastAPI(title="Carbon Crunch Event Processor")
-
-
 @app.get("/health")
 def health():
     return {"status": "ok"}
