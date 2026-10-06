@@ -37,7 +37,7 @@ class JsonFormatter(logging.Formatter):
 handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
 
-logger = logging.getLogger("carbon_crunch")
+logger = logging.getLogger("event_processor")
 logger.setLevel(logging.INFO)
 logger.handlers.clear()
 logger.addHandler(handler)
@@ -54,7 +54,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Carbon Crunch Event Processor",
+    title="Transactional Event Processor",
     lifespan=lifespan,
 )
 
