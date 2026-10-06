@@ -1,14 +1,46 @@
+import json
+import logging
+import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.responses import Response
 
 from aggregation import get_aggregates
 from database import get_connection
 from processor import process_event
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "timestamp": datetime.now().astimezone().isoformat(),
+        }
+
+        for key in ("request_id", "method", "path", "status_code", "duration_ms"):
+            value = getattr(record, key, None)
+            if value is not None:
+                payload[key] = value
+
+        return json.dumps(payload, separators=(",", ":"))
+
+
+handler = logging.StreamHandler()
+handler.setFormatter(JsonFormatter())
+
+logger = logging.getLogger("carbon_crunch")
+logger.setLevel(logging.INFO)
+logger.handlers.clear()
+logger.addHandler(handler)
+logger.propagate = False
 
 
 app = FastAPI(title="Carbon Crunch Event Processor")
@@ -26,6 +58,11 @@ class EventRequest(BaseModel):
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]
+
+
+class ReadyResponse(BaseModel):
+    status: Literal["ready"]
+    database: Literal["ok"]
 
 
 class ProcessEventResponse(BaseModel):
@@ -70,9 +107,66 @@ class AttemptPage(BaseModel):
     has_more: bool
 
 
+@app.middleware("http")
+async def request_logging(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    start = time.perf_counter()
+
+    try:
+        response: Response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        logger.exception(
+            "request_failed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": 500,
+                "duration_ms": duration_ms,
+            },
+        )
+        raise
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+
+    logger.info(
+        "request_completed",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
 @app.get("/health", response_model=HealthResponse)
 def health():
     return {"status": "ok"}
+
+
+@app.get("/ready", response_model=ReadyResponse)
+def ready():
+    try:
+        with get_connection() as conn:
+            conn.execute("SELECT 1")
+    except Exception:
+        logger.exception("database_readiness_check_failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Database is not ready",
+        )
+
+    return {
+        "status": "ready",
+        "database": "ok",
+    }
 
 
 @app.post("/events", response_model=ProcessEventResponse)
