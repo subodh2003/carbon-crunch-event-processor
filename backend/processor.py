@@ -9,10 +9,10 @@ from normalizer import normalize_event
 
 def create_fingerprint(event: dict) -> str:
     canonical_event = {
-    "client_id": event["client_id"],
-    "metric": event["metric"],
-    "amount": str(event["amount"]),
-    "timestamp": event["timestamp"].isoformat(),
+        "client_id": event["client_id"],
+        "metric": event["metric"],
+        "amount": str(event["amount"]),
+        "timestamp": event["timestamp"].isoformat(),
     }
 
     serialized = json.dumps(
@@ -59,8 +59,6 @@ def process_event(
     raw_event: dict,
     simulate_failure: bool = False,
 ) -> dict:
-
-    # Normalize before touching the database.
     try:
         normalized = normalize_event(raw_event)
 
@@ -78,8 +76,6 @@ def process_event(
     with get_connection() as conn:
         try:
             with conn.cursor() as cur:
-
-                # Store the original event.
                 cur.execute(
                     """
                     INSERT INTO raw_events (source, payload)
@@ -94,13 +90,9 @@ def process_event(
 
                 raw_event_id = cur.fetchone()[0]
 
-                # Simulate a failure before the processed event is committed.
                 if simulate_failure:
-                    raise RuntimeError(
-                        "Simulated database failure"
-                    )
+                    raise RuntimeError("Simulated processing failure")
 
-                # Store the normalized event.
                 cur.execute(
                     """
                     INSERT INTO processed_events (
@@ -123,7 +115,27 @@ def process_event(
                     ),
                 )
 
-            # Both inserts succeed together.
+                # Keep the success audit record in the same transaction.
+                cur.execute(
+                    """
+                    INSERT INTO event_attempts (
+                        source,
+                        payload,
+                        fingerprint,
+                        status,
+                        error_message
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        raw_event.get("source"),
+                        json.dumps(raw_event.get("payload")),
+                        fingerprint,
+                        "processed",
+                        None,
+                    ),
+                )
+
             conn.commit()
 
         except UniqueViolation:
@@ -152,7 +164,7 @@ def process_event(
 
             raise
 
-        except Exception as exc:
+        except Exception:
             conn.rollback()
 
             record_attempt(
@@ -163,13 +175,6 @@ def process_event(
             )
 
             raise
-
-    # Record success only after the transaction has committed.
-    record_attempt(
-        raw_event=raw_event,
-        fingerprint=fingerprint,
-        status="processed",
-    )
 
     return {
         "status": "processed",
