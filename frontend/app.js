@@ -1,6 +1,5 @@
 const API_URL = "";
 const eventInput = document.getElementById("eventInput");
-const simulateFailure = document.getElementById("simulateFailure");
 const submitButton = document.getElementById("submitButton");
 const submitResult = document.getElementById("submitResult");
 const clientFilter = document.getElementById("clientFilter");
@@ -31,8 +30,7 @@ async function submitEvent() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                event: event,
-                simulate_failure: simulateFailure.checked
+                event: event
             })
         });
 
