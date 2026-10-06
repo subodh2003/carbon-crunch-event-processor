@@ -2,6 +2,7 @@ import json
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -12,7 +13,7 @@ from pydantic import BaseModel, Field
 from starlette.responses import Response
 
 from aggregation import get_aggregates
-from database import get_connection
+from database import close_pool, get_connection, open_pool
 from processor import process_event
 
 
@@ -43,7 +44,19 @@ logger.addHandler(handler)
 logger.propagate = False
 
 
-app = FastAPI(title="Carbon Crunch Event Processor")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    open_pool()
+    try:
+        yield
+    finally:
+        close_pool()
+
+
+app = FastAPI(
+    title="Carbon Crunch Event Processor",
+    lifespan=lifespan,
+)
 
 
 class EventPayload(BaseModel):
@@ -53,7 +66,6 @@ class EventPayload(BaseModel):
 
 class EventRequest(BaseModel):
     event: EventPayload
-    simulate_failure: bool = False
 
 
 class HealthResponse(BaseModel):
@@ -172,10 +184,7 @@ def ready():
 @app.post("/events", response_model=ProcessEventResponse)
 def ingest_event(request: EventRequest):
     try:
-        return process_event(
-            request.event.model_dump(),
-            request.simulate_failure,
-        )
+        return process_event(request.event.model_dump())
 
     except ValueError as exc:
         raise HTTPException(
