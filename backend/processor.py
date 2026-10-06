@@ -7,11 +7,20 @@ from database import get_connection
 from normalizer import normalize_event
 
 
+def canonical_amount(value) -> str:
+    amount = value.normalize()
+
+    if amount == 0:
+        return "0"
+
+    return format(amount, "f")
+
+
 def create_fingerprint(event: dict) -> str:
     canonical_event = {
         "client_id": event["client_id"],
         "metric": event["metric"],
-        "amount": str(event["amount"]),
+        "amount": canonical_amount(event["amount"]),
         "timestamp": event["timestamp"].isoformat(),
     }
 
