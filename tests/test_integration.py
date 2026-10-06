@@ -1,4 +1,5 @@
 import concurrent.futures
+import os
 
 import psycopg
 
@@ -15,8 +16,12 @@ EVENT = {
 }
 
 
+def database_url() -> str:
+    return os.environ["TEST_DATABASE_URL"]
+
+
 def count_rows(table: str) -> int:
-    with psycopg.connect() as conn:
+    with psycopg.connect(database_url()) as conn:
         with conn.cursor() as cur:
             cur.execute(f"SELECT COUNT(*) FROM {table}")
             return cur.fetchone()[0]
@@ -47,7 +52,7 @@ def test_failed_processing_does_not_commit_partial_event():
     assert count_rows("processed_events") == 0
     assert count_rows("event_attempts") == 1
 
-    with psycopg.connect() as conn:
+    with psycopg.connect(database_url()) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
