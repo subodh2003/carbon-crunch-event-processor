@@ -84,3 +84,76 @@ def test_normalize_rejects_invalid_timestamp():
 
     with pytest.raises(ValueError, match="Invalid timestamp"):
         normalize_event(event)
+
+
+def test_normalize_rejects_non_finite_amounts():
+    base_event = {
+        "source": "client-A",
+        "payload": {
+            "metric": "energy",
+            "timestamp": "2026-08-29",
+        },
+    }
+
+    for value in ("NaN", "Infinity", "-Infinity"):
+        event = {
+            **base_event,
+            "payload": {
+                **base_event["payload"],
+                "amount": value,
+            },
+        }
+
+        with pytest.raises(ValueError, match="Amount must be finite"):
+            normalize_event(event)
+
+
+@pytest.mark.parametrize("field", ["source", "metric", "client_id"])
+def test_normalize_rejects_blank_identifiers(field):
+    if field == "source":
+        event = {
+            "source": "   ",
+            "payload": {
+                "metric": "energy",
+                "amount": "10",
+                "timestamp": "2026-08-29",
+            },
+        }
+    elif field == "metric":
+        event = {
+            "source": "client-A",
+            "payload": {
+                "metric": "   ",
+                "amount": "10",
+                "timestamp": "2026-08-29",
+            },
+        }
+    else:
+        event = {
+            "source": "client-A",
+            "payload": {
+                "client_id": "   ",
+                "metric": "energy",
+                "amount": "10",
+                "timestamp": "2026-08-29",
+            },
+        }
+
+    with pytest.raises(ValueError, match=f"Missing {field}"):
+        normalize_event(event)
+
+
+def test_get_first_uses_alias_when_primary_value_is_null():
+    event = {
+        "source": "client-A",
+        "payload": {
+            "metric": None,
+            "type": "energy",
+            "amount": "10",
+            "timestamp": "2026-08-29",
+        },
+    }
+
+    result = normalize_event(event)
+
+    assert result["metric"] == "energy"
