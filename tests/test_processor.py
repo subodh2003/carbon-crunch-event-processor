@@ -25,6 +25,20 @@ def test_fingerprint_is_deterministic():
     assert create_fingerprint(event) == create_fingerprint(event)
 
 
+def test_equivalent_decimal_formats_have_same_fingerprint():
+    first = create_fingerprint(make_event(amount=Decimal("10")))
+    second = create_fingerprint(make_event(amount=Decimal("10.0")))
+    third = create_fingerprint(make_event(amount=Decimal("10.00")))
+
+    assert first == second == third
+
+
+def test_zero_decimal_formats_have_same_fingerprint():
+    assert create_fingerprint(make_event(amount=Decimal("0"))) == (
+        create_fingerprint(make_event(amount=Decimal("0.00")))
+    )
+
+
 def test_fingerprint_changes_when_event_identity_changes():
     original = make_event()
 
