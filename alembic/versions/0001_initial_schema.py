@@ -72,13 +72,11 @@ def upgrade() -> None:
         "idx_processed_events_processed_at",
         "processed_events",
         ["processed_at"],
-        postgresql_ops={"processed_at": "DESC"},
     )
     op.create_index(
         "idx_event_attempts_created_at",
         "event_attempts",
         ["created_at"],
-        postgresql_ops={"created_at": "DESC"},
     )
     op.create_index(
         "idx_event_attempts_fingerprint",
